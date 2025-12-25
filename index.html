@@ -507,11 +507,24 @@
             }
         };
 
+        // ==========================================
+        // 🔗 MODULE ROUTING CONFIGURATION
+        // ==========================================
+        // Add your module pages here with their file paths
+        const modulePages = {
+            'dashboard': null,              // Stay on current page
+            'project': 'project-summary.html',     // ✅ Project Summary Module
+            'finance': 'finance-details.html',     // 🔜 Add this file later
+            'labour': 'labour-details.html',       // 🔜 Add this file later
+            'reports': 'reports.html',             // 🔜 Add this file later
+            'settings': 'settings.html'            // 🔜 Add this file later
+        };
+
         // Navigation items for each role
         const navigationItems = {
             owner: [
                 { icon: '📊', text: 'Dashboard', id: 'dashboard' },
-                { icon: '🏗', text: 'Project Details', id: 'project' },
+                { icon: '🗂️', text: 'Project Details', id: 'project' },
                 { icon: '💰', text: 'Finance Details', id: 'finance' },
                 { icon: '👷', text: 'Labour Details', id: 'labour' },
                 { icon: '📈', text: 'Reports', id: 'reports' },
@@ -568,7 +581,8 @@
                 loginTime: new Date().toISOString()
             };
 
-            // Store session (in memory for this demo)
+            // Store session
+            sessionStorage.setItem('currentSession', JSON.stringify(session));
             window.currentSession = session;
 
             showMessage('Login successful! Loading dashboard...', 'success');
@@ -582,6 +596,7 @@
         document.getElementById('logoutBtn').addEventListener('click', function() {
             if (confirm('Are you sure you want to logout?')) {
                 window.currentSession = null;
+                sessionStorage.removeItem('currentSession');
                 document.getElementById('dashboardPage').classList.remove('active');
                 document.getElementById('loginPage').style.display = 'flex';
                 document.getElementById('loginForm').reset();
@@ -606,15 +621,45 @@
             `;
         }
 
+        // ==========================================
+        // 🚀 NAVIGATION FUNCTION WITH ROUTING
+        // ==========================================
         function loadNavigation(role) {
             const navMenu = document.getElementById('navMenu');
             const items = navigationItems[role];
             
             navMenu.innerHTML = items.map((item, index) => `
                 <li class="nav-item">
-                    <a class="nav-link ${index === 0 ? 'active' : ''}">${item.icon} ${item.text}</a>
+                    <a class="nav-link ${index === 0 ? 'active' : ''}" 
+                       onclick="navigateToPage('${item.id}')" 
+                       style="cursor: pointer;">
+                        ${item.icon} ${item.text}
+                    </a>
                 </li>
             `).join('');
+        }
+
+        // ==========================================
+        // 🎯 NAVIGATION HANDLER
+        // ==========================================
+        function navigateToPage(pageId) {
+            // Get the module page path from configuration
+            const pagePath = modulePages[pageId];
+            
+            if (pageId === 'dashboard') {
+                // Stay on dashboard
+                loadDashboardContent(window.currentSession);
+                return;
+            }
+            
+            if (pagePath) {
+                // Check if file exists (module is ready)
+                // Navigate to the module page
+                window.location.href = pagePath;
+            } else {
+                // Module not created yet
+                alert(`${pageId.charAt(0).toUpperCase() + pageId.slice(1)} module coming soon!\n\nTo add this module:\n1. Create ${pageId}.html file\n2. Add it to modulePages object in index.html`);
+            }
         }
 
         function loadDashboardContent(session) {
@@ -713,12 +758,14 @@
             return role.charAt(0).toUpperCase() + role.slice(1);
         }
 
-        // Initialize
+        // Initialize - Check for existing session
         window.addEventListener('load', function() {
-            if (window.currentSession) {
+            const savedSession = sessionStorage.getItem('currentSession');
+            if (savedSession) {
+                window.currentSession = JSON.parse(savedSession);
                 loadDashboard(window.currentSession);
             }
         });
-    </script>
+  </script>   
 </body>
 </html>
