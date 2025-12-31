@@ -103,11 +103,13 @@
         .message.error {
             background: #fee;
             color: #c33;
+            display: block;
         }
 
         .message.success {
             background: #efe;
             color: #3c3;
+            display: block;
         }
 
         .demo-credentials {
@@ -191,6 +193,7 @@
             flex: 1;
             padding: 20px;
             background: #f5f7fa;
+            min-height: 100vh;
         }
 
         .header {
@@ -259,38 +262,6 @@
 
         .welcome-message h2 {
             margin-bottom: 10px;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .card {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .card h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-
-        .card .value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #333;
-            margin: 10px 0;
-        }
-
-        .card .label {
-            color: #666;
-            font-size: 14px;
         }
 
         .section-title {
@@ -367,11 +338,11 @@
         }
     </style>
     <!-- Firebase CDN -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
-<!-- Firebase Configuration -->
-<script src="firebase-config.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
 </head>
 <body>
     <!-- Login Page -->
@@ -389,6 +360,7 @@
                 <select id="userType" required>
                     <option value="">Select User Type</option>
                     <option value="owner">Owner</option>
+                    <option value="investor">Investor</option>
                     <option value="financer">Financer</option>
                     <option value="labour">Labour</option>
                 </select>
@@ -410,6 +382,7 @@
         <div class="demo-credentials">
             <h4>Demo Credentials:</h4>
             <p><strong>Owner:</strong> owner / owner123</p>
+            <p><strong>Investor:</strong> investor / inv123</p>
             <p><strong>Financer:</strong> financer / fin123</p>
             <p><strong>Labour:</strong> labour / lab123</p>
         </div>
@@ -436,318 +409,385 @@
     </div>
 
     <script>
-        // User credentials database
-        const users = {
-            owner: {
-                username: 'owner',
-                password: 'owner123',
-                role: 'owner',
-                fullName: 'Project Owner',
-                permissions: ['project', 'finance', 'labour', 'reports', 'settings']
-            },
-            financer: {
-                username: 'financer',
-                password: 'fin123',
-                role: 'financer',
-                fullName: 'Finance Manager',
-                permissions: ['finance', 'reports']
-            },
-            labour: {
-                username: 'labour',
-                password: 'lab123',
-                role: 'labour',
-                fullName: 'Labour Worker',
-                permissions: ['labour']
+        // Wait for Firebase to be ready
+        window.addEventListener('load', function() {
+            // Check if Firebase is loaded
+            if (typeof firebase === 'undefined') {
+                console.error('Firebase not loaded!');
+                showMessage('Firebase connection error. Please refresh the page.', 'error');
+                return;
             }
-        };
 
-        // Access Control Configuration
-        const accessControl = {
-            owner: {
-                allowedPages: ['project-details', 'finance-details', 'labour-details', 'reports', 'settings'],
-                features: {
-                    projectSummary: true,
-                    budgetVsActual: true,
-                    materialTracking: true,
-                    labourTracking: true,
-                    expenses: true,
-                    financialSummary: true,
-                    capitalManagement: true,
-                    billsFollowUp: true,
-                    csvUpload: true,
-                    billUpload: true,
-                    exportData: true
+            // Get Database Reference
+            const database = window.database || firebase.database();
+
+            // User credentials database
+            const users = {
+                owner: {
+                    username: 'owner',
+                    password: 'owner123',
+                    role: 'owner',
+                    fullName: 'Project Owner',
+                    permissions: ['contractor', 'subcontractor', 'project', 'investor', 'finance', 'labour', 'reports', 'settings']
+                },
+                investor: {
+                    username: 'investor',
+                    password: 'inv123',
+                    role: 'investor',
+                    fullName: 'Investor',
+                    permissions: ['investor', 'reports']
+                },
+                financer: {
+                    username: 'financer',
+                    password: 'fin123',
+                    role: 'financer',
+                    fullName: 'Finance Manager',
+                    permissions: ['finance', 'reports']
+                },
+                labour: {
+                    username: 'labour',
+                    password: 'lab123',
+                    role: 'labour',
+                    fullName: 'Labour Worker',
+                    permissions: ['labour']
                 }
-            },
-            financer: {
-                allowedPages: ['finance-details', 'reports'],
-                features: {
-                    projectSummary: false,
-                    budgetVsActual: true,
-                    materialTracking: false,
-                    labourTracking: false,
-                    expenses: false,
-                    financialSummary: true,
-                    capitalManagement: true,
-                    billsFollowUp: true,
-                    csvUpload: true,
-                    billUpload: true,
-                    exportData: true
-                }
-            },
-            labour: {
-                allowedPages: ['labour-details'],
-                features: {
-                    projectSummary: false,
-                    budgetVsActual: false,
-                    materialTracking: false,
-                    labourTracking: true,
-                    expenses: true,
-                    financialSummary: false,
-                    capitalManagement: false,
-                    billsFollowUp: false,
-                    csvUpload: false,
-                    billUpload: false,
-                    exportData: false
-                }
-            }
-        };
-
-        // ==========================================
-        // 🔗 MODULE ROUTING CONFIGURATION
-        // ==========================================
-        // Add your module pages here with their file paths
-        const modulePages = {
-            'dashboard': null,              // Stay on current page
-            'project': 'project-summary.html',     // ✅ Project Summary Module
-            'finance': 'finance-details.html',     // 🔜 Add this file later
-            'labour': 'labour-details.html',       // 🔜 Add this file later
-            'reports': 'reports.html',             // 🔜 Add this file later
-            'settings': 'settings.html'            // 🔜 Add this file later
-        };
-
-        // Navigation items for each role
-        const navigationItems = {
-            owner: [
-                { icon: '📊', text: 'Dashboard', id: 'dashboard' },
-                { icon: '🗂️', text: 'Project Details', id: 'project' },
-                { icon: '💰', text: 'Finance Details', id: 'finance' },
-                { icon: '👷', text: 'Labour Details', id: 'labour' },
-                { icon: '📈', text: 'Reports', id: 'reports' },
-                { icon: '⚙️', text: 'Settings', id: 'settings' }
-            ],
-            financer: [
-                { icon: '📊', text: 'Dashboard', id: 'dashboard' },
-                { icon: '💰', text: 'Finance Details', id: 'finance' },
-                { icon: '📈', text: 'Reports', id: 'reports' }
-            ],
-            labour: [
-                { icon: '📊', text: 'Dashboard', id: 'dashboard' },
-                { icon: '👷', text: 'Labour Details', id: 'labour' }
-            ]
-        };
-
-        // Login Form Handler
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const userType = document.getElementById('userType').value;
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-
-            if (!userType || !username || !password) {
-                showMessage('Please fill in all fields', 'error');
-                return;
-            }
-
-            const user = users[username];
-
-            if (!user) {
-                showMessage('Invalid username', 'error');
-                return;
-            }
-
-            if (user.password !== password) {
-                showMessage('Invalid password', 'error');
-                return;
-            }
-
-            if (user.role !== userType) {
-                showMessage('User type does not match', 'error');
-                return;
-            }
-
-            // Create session
-            const session = {
-                userId: username,
-                role: user.role,
-                fullName: user.fullName,
-                permissions: user.permissions,
-                accessControl: accessControl[user.role],
-                loginTime: new Date().toISOString()
             };
 
-            // Store session
-            sessionStorage.setItem('currentSession', JSON.stringify(session));
-            window.currentSession = session;
-
-            showMessage('Login successful! Loading dashboard...', 'success');
-            
-            setTimeout(() => {
-                loadDashboard(session);
-            }, 1000);
-        });
-
-        // Logout Handler
-        document.getElementById('logoutBtn').addEventListener('click', function() {
-            if (confirm('Are you sure you want to logout?')) {
-                window.currentSession = null;
-                sessionStorage.removeItem('currentSession');
-                document.getElementById('dashboardPage').classList.remove('active');
-                document.getElementById('loginPage').style.display = 'flex';
-                document.getElementById('loginForm').reset();
-                showMessage('Logged out successfully', 'success');
-            }
-        });
-
-        function loadDashboard(session) {
-            document.getElementById('loginPage').style.display = 'none';
-            document.getElementById('dashboardPage').classList.add('active');
-            
-            displayUserInfo(session);
-            loadNavigation(session.role);
-            loadDashboardContent(session);
-        }
-
-        function displayUserInfo(session) {
-            const userInfoDiv = document.getElementById('userInfoDisplay');
-            userInfoDiv.innerHTML = `
-                <span class="user-name">${session.fullName}</span>
-                <span class="user-role">${capitalizeRole(session.role)}</span>
-            `;
-        }
-
-        // ==========================================
-        // 🚀 NAVIGATION FUNCTION WITH ROUTING
-        // ==========================================
-        function loadNavigation(role) {
-            const navMenu = document.getElementById('navMenu');
-            const items = navigationItems[role];
-            
-            navMenu.innerHTML = items.map((item, index) => `
-                <li class="nav-item">
-                    <a class="nav-link ${index === 0 ? 'active' : ''}" 
-                       onclick="navigateToPage('${item.id}')" 
-                       style="cursor: pointer;">
-                        ${item.icon} ${item.text}
-                    </a>
-                </li>
-            `).join('');
-        }
-
-        // ==========================================
-        // 🎯 NAVIGATION HANDLER
-        // ==========================================
-        function navigateToPage(pageId) {
-            // Get the module page path from configuration
-            const pagePath = modulePages[pageId];
-            
-            if (pageId === 'dashboard') {
-                // Stay on dashboard
-                loadDashboardContent(window.currentSession);
-                return;
-            }
-            
-            if (pagePath) {
-                // Check if file exists (module is ready)
-                // Navigate to the module page
-                window.location.href = pagePath;
-            } else {
-                // Module not created yet
-                alert(`${pageId.charAt(0).toUpperCase() + pageId.slice(1)} module coming soon!\n\nTo add this module:\n1. Create ${pageId}.html file\n2. Add it to modulePages object in index.html`);
-            }
-        }
-
-        function loadDashboardContent(session) {
-            const content = document.getElementById('dashboardContent');
-            const features = session.accessControl.features;
-            
-            content.innerHTML = `
-                <div class="welcome-message">
-                    <h2>Welcome back, ${session.fullName}!</h2>
-                    <p>${getWelcomeMessage(session.role)}</p>
-                </div>
-
-                <div class="dashboard-grid">
-                    <div class="card">
-                        <h3>Total Budget</h3>
-                        <div class="value">₹5,00,000</div>
-                        <div class="label">Allocated for project</div>
-                    </div>
-
-                    <div class="card">
-                        <h3>Total Spent</h3>
-                        <div class="value">₹3,50,000</div>
-                        <div class="label">70% utilized</div>
-                    </div>
-
-                    <div class="card">
-                        <h3>Remaining</h3>
-                        <div class="value">₹1,50,000</div>
-                        <div class="label">30% available</div>
-                    </div>
-
-                    <div class="card">
-                        <h3>Project Status</h3>
-                        <div class="value">75%</div>
-                        <div class="label">Completion rate</div>
-                    </div>
-                </div>
-
-                <h2 class="section-title">Available Features</h2>
-                <div class="feature-grid">
-                    ${generateFeatureCards(features)}
-                </div>
-            `;
-        }
-
-        function getWelcomeMessage(role) {
-            const messages = {
-                owner: 'You have full access to all features and modules of the Fund Monitoring System.',
-                financer: 'You have access to financial management and reporting features.',
-                labour: 'You can view your work details and submit expense reports.'
+            // Access Control Configuration
+            const accessControl = {
+                owner: {
+                    allowedPages: ['contractor', 'subcontractor', 'project', 'investor', 'finance', 'labour', 'reports', 'settings'],
+                    features: {
+                        superContractor: true,
+                        subContractor: true,
+                        projectDetails: true,
+                        investorDetails: true,
+                        financerDetails: true,
+                        labourDetails: true,
+                        reports: true,
+                        settings: true
+                    }
+                },
+                investor: {
+                    allowedPages: ['investor', 'reports'],
+                    features: {
+                        superContractor: false,
+                        subContractor: false,
+                        projectDetails: false,
+                        investorDetails: true,
+                        financerDetails: false,
+                        labourDetails: false,
+                        reports: true,
+                        settings: false
+                    }
+                },
+                financer: {
+                    allowedPages: ['finance', 'reports'],
+                    features: {
+                        superContractor: false,
+                        subContractor: false,
+                        projectDetails: false,
+                        investorDetails: false,
+                        financerDetails: true,
+                        labourDetails: false,
+                        reports: true,
+                        settings: false
+                    }
+                },
+                labour: {
+                    allowedPages: ['labour'],
+                    features: {
+                        superContractor: false,
+                        subContractor: false,
+                        projectDetails: false,
+                        investorDetails: false,
+                        financerDetails: false,
+                        labourDetails: true,
+                        reports: false,
+                        settings: false
+                    }
+                }
             };
-            return messages[role] || '';
-        }
 
-        function generateFeatureCards(features) {
-            const featureList = [
-                { key: 'projectSummary', title: 'Project Summary', desc: 'View complete project details, timeline, and progress tracking.' },
-                { key: 'materialTracking', title: 'Material Tracking', desc: 'Track material inventory, usage, and procurement status.' },
-                { key: 'labourTracking', title: 'Labour Tracking', desc: 'Monitor labour attendance, payments, and work progress.' },
-                { key: 'financialSummary', title: 'Financial Summary', desc: 'Complete financial overview with budget analysis.' },
-                { key: 'billsFollowUp', title: 'Bills Follow-up', desc: 'Track pending bills, payments, and vendor information.' },
-                { key: 'exportData', title: 'Export Data', desc: 'Export reports in PDF, Excel, and Word formats.' }
-            ];
+            // Module routing configuration
+            const modulePages = {
+                'dashboard': null,
+                'contractor': 'super-contractor.html',
+                'subcontractor': 'sub-contractor.html',
+                'project': 'project-details.html',
+                'investor': 'investor-details.html',
+                'finance': 'finance-details.html',
+                'labour': 'labour-details.html',
+                'reports': 'reports.html',
+                'settings': 'settings.html'
+            };
 
-            return featureList.map(feature => {
-                const hasAccess = features[feature.key];
-                const badge = hasAccess 
-                    ? '<span class="access-badge">✓ Access</span>' 
-                    : '<span class="access-badge denied-badge">✗ No Access</span>';
+            // Navigation items for each role
+            const navigationItems = {
+                owner: [
+                    { icon: '📊', text: 'Dashboard', id: 'dashboard' },
+                    { icon: '🏗️', text: 'Super Contractor', id: 'contractor' },
+                    { icon: '👷', text: 'Sub Contractor', id: 'subcontractor' },
+                    { icon: '🗂️', text: 'Project Details', id: 'project' },
+                    { icon: '💼', text: 'Investor Details', id: 'investor' },
+                    { icon: '💰', text: 'Financer Details', id: 'finance' },
+                    { icon: '👷', text: 'Labour Details', id: 'labour' },
+                    { icon: '📈', text: 'Reports', id: 'reports' },
+                    { icon: '⚙️', text: 'Settings', id: 'settings' }
+                ],
+                investor: [
+                    { icon: '📊', text: 'Dashboard', id: 'dashboard' },
+                    { icon: '💼', text: 'Investor Details', id: 'investor' },
+                    { icon: '📈', text: 'Reports', id: 'reports' }
+                ],
+                financer: [
+                    { icon: '📊', text: 'Dashboard', id: 'dashboard' },
+                    { icon: '💰', text: 'Financer Details', id: 'finance' },
+                    { icon: '📈', text: 'Reports', id: 'reports' }
+                ],
+                labour: [
+                    { icon: '📊', text: 'Dashboard', id: 'dashboard' },
+                    { icon: '👷', text: 'Labour Details', id: 'labour' }
+                ]
+            };
+
+            // Login Form Handler
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const userType = document.getElementById('userType').value;
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value;
+
+                if (!userType || !username || !password) {
+                    showMessage('Please fill in all fields', 'error');
+                    return;
+                }
+
+                const user = users[username];
+
+                if (!user) {
+                    showMessage('Invalid username', 'error');
+                    return;
+                }
+
+                if (user.password !== password) {
+                    showMessage('Invalid password', 'error');
+                    return;
+                }
+
+                if (user.role !== userType) {
+                    showMessage('User type does not match', 'error');
+                    return;
+                }
+
+                // Create session
+                const session = {
+                    userId: username,
+                    role: user.role,
+                    fullName: user.fullName,
+                    permissions: user.permissions,
+                    accessControl: accessControl[user.role],
+                    loginTime: new Date().toISOString()
+                };
+
+                // Store login data to Firebase
+                const loginData = {
+                    userId: username,
+                    role: user.role,
+                    fullName: user.fullName,
+                    loginTime: new Date().toISOString(),
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+
+                // Save to Firebase under 'loginHistory' node
+                database.ref('loginHistory').push(loginData)
+                    .then(() => {
+                        console.log('Login data saved to Firebase');
+                    })
+                    .catch((error) => {
+                        console.error('Error saving login data:', error);
+                    });
+
+                // Also update current session in Firebase
+                database.ref('currentSessions/' + username).set(loginData)
+                    .then(() => {
+                        console.log('Current session updated in Firebase');
+                    })
+                    .catch((error) => {
+                        console.error('Error updating session:', error);
+                    });
+
+                // Store session locally
+                sessionStorage.setItem('currentSession', JSON.stringify(session));
+                window.currentSession = session;
+
+                showMessage('Login successful! Loading dashboard...', 'success');
                 
-                return `
-                    <div class="feature-card">
-                        <h3>${feature.title} ${badge}</h3>
-                        <p>${feature.desc}</p>
-                        <button class="btn-feature" ${!hasAccess ? 'disabled' : ''} 
-                                onclick="alert('Feature module coming soon!')">
-                            ${hasAccess ? 'View Details' : 'Access Denied'}
-                        </button>
+                setTimeout(() => {
+                    loadDashboard(session);
+                }, 1000);
+            });
+
+            // Logout Handler
+            document.getElementById('logoutBtn').addEventListener('click', function() {
+                if (confirm('Are you sure you want to logout?')) {
+                    const username = window.currentSession?.userId;
+                    
+                    // Save logout data to Firebase
+                    if (username) {
+                        const logoutData = {
+                            userId: username,
+                            role: window.currentSession.role,
+                            fullName: window.currentSession.fullName,
+                            logoutTime: new Date().toISOString(),
+                            timestamp: firebase.database.ServerValue.TIMESTAMP
+                        };
+
+                        // Save to Firebase under 'logoutHistory' node
+                        database.ref('logoutHistory').push(logoutData)
+                            .then(() => {
+                                console.log('Logout data saved to Firebase');
+                            })
+                            .catch((error) => {
+                                console.error('Error saving logout data:', error);
+                            });
+
+                        // Remove current session from Firebase
+                        database.ref('currentSessions/' + username).remove()
+                            .then(() => {
+                                console.log('Session removed from Firebase');
+                            })
+                            .catch((error) => {
+                                console.error('Error removing session:', error);
+                            });
+                    }
+
+                    window.currentSession = null;
+                    sessionStorage.removeItem('currentSession');
+                    document.getElementById('dashboardPage').classList.remove('active');
+                    document.getElementById('loginPage').style.display = 'flex';
+                    document.getElementById('loginForm').reset();
+                    showMessage('Logged out successfully', 'success');
+                }
+            });
+
+            function loadDashboard(session) {
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('dashboardPage').classList.add('active');
+                
+                displayUserInfo(session);
+                loadNavigation(session.role);
+                loadDashboardContent(session);
+            }
+
+            function displayUserInfo(session) {
+                const userInfoDiv = document.getElementById('userInfoDisplay');
+                userInfoDiv.innerHTML = `
+                    <span class="user-name">${session.fullName}</span>
+                    <span class="user-role">${capitalizeRole(session.role)}</span>
+                `;
+            }
+
+            function loadNavigation(role) {
+                const navMenu = document.getElementById('navMenu');
+                const items = navigationItems[role];
+                
+                navMenu.innerHTML = items.map((item, index) => `
+                    <li class="nav-item">
+                        <a class="nav-link ${index === 0 ? 'active' : ''}" 
+                           onclick="navigateToPage('${item.id}')" 
+                           style="cursor: pointer;">
+                            ${item.icon} ${item.text}
+                        </a>
+                    </li>
+                `).join('');
+            }
+
+            window.navigateToPage = function(pageId) {
+                const pagePath = modulePages[pageId];
+                
+                if (pageId === 'dashboard') {
+                    loadDashboardContent(window.currentSession);
+                    return;
+                }
+                
+                if (pagePath) {
+                    window.location.href = pagePath;
+                } else {
+                    alert(`${pageId.charAt(0).toUpperCase() + pageId.slice(1)} module coming soon!\n\nTo add this module:\n1. Create ${pageId}.html file\n2. Add it to modulePages object in index.html`);
+                }
+            }
+
+            function loadDashboardContent(session) {
+                const content = document.getElementById('dashboardContent');
+                const features = session.accessControl.features;
+                
+                content.innerHTML = `
+                    <div class="welcome-message">
+                        <h2>Welcome back, ${session.fullName}!</h2>
+                        <p>${getWelcomeMessage(session.role)}</p>
+                    </div>
+
+                    <h2 class="section-title">Available Modules</h2>
+                    <div class="feature-grid">
+                        ${generateFeatureCards(features)}
                     </div>
                 `;
-            }).join('');
-        }
+            }
+
+            function getWelcomeMessage(role) {
+                const messages = {
+                    owner: 'You have full access to all features and modules of the Fund Monitoring System.',
+                    investor: 'You can view investment details and financial reports.',
+                    financer: 'You have access to financial management and reporting features.',
+                    labour: 'You can view your work details and submit expense reports.'
+                };
+                return messages[role] || '';
+            }
+
+            function generateFeatureCards(features) {
+                const featureList = [
+                    { key: 'superContractor', title: 'Super Contractor', desc: 'Manage super contractor details, contracts, and payments.' },
+                    { key: 'subContractor', title: 'Sub Contractor', desc: 'Manage sub contractor details, contracts, and payments.' },
+                    { key: 'projectDetails', title: 'Project Details', desc: 'View complete project information, timeline, and progress tracking.' },
+                    { key: 'investorDetails', title: 'Investor Details', desc: 'Track investment amounts, returns, and investor communications.' },
+                    { key: 'financerDetails', title: 'Financer Details', desc: 'Manage financial transactions, budgets, and expense tracking.' },
+                    { key: 'labourDetails', title: 'Labour Details', desc: 'Monitor labour attendance, payments, and work assignments.' },
+                    { key: 'reports', title: 'Reports', desc: 'Generate and export comprehensive reports in various formats.' },
+                    { key: 'settings', title: 'Settings', desc: 'Configure system settings and user preferences.' }
+                ];
+
+                return featureList.map(feature => {
+                    const hasAccess = features[feature.key];
+                    const badge = hasAccess 
+                        ? '<span class="access-badge">✓ Access</span>' 
+                        : '<span class="access-badge denied-badge">✗ No Access</span>';
+                    
+                    return `
+                        <div class="feature-card">
+                            <h3>${feature.title} ${badge}</h3>
+                            <p>${feature.desc}</p>
+                            <button class="btn-feature" ${!hasAccess ? 'disabled' : ''} 
+                                    onclick="alert('Feature module coming soon!')">
+                                ${hasAccess ? 'View Details' : 'Access Denied'}
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            function capitalizeRole(role) {
+                return role.charAt(0).toUpperCase() + role.slice(1);
+            }
+
+            // Check for existing session on page load
+            const savedSession = sessionStorage.getItem('currentSession');
+            if (savedSession) {
+                window.currentSession = JSON.parse(savedSession);
+                loadDashboard(window.currentSession);
+            }
+        });
 
         function showMessage(message, type) {
             const messageBox = document.getElementById('messageBox');
@@ -759,19 +799,6 @@
                 messageBox.style.display = 'none';
             }, 3000);
         }
-
-        function capitalizeRole(role) {
-            return role.charAt(0).toUpperCase() + role.slice(1);
-        }
-
-        // Initialize - Check for existing session
-        window.addEventListener('load', function() {
-            const savedSession = sessionStorage.getItem('currentSession');
-            if (savedSession) {
-                window.currentSession = JSON.parse(savedSession);
-                loadDashboard(window.currentSession);
-            }
-        });
-        </script>
+    </script>
 </body>
 </html>
