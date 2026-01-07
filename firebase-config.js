@@ -1,7 +1,5 @@
 // Firebase Configuration File
 // This file contains the Firebase configuration and initialization
-// Import this file in any HTML page that needs Firebase access
-
 // Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyB69HkygosCAqBhOTb0GG1bkjou0hY-OTc",
