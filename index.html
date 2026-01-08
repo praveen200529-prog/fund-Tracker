@@ -688,6 +688,61 @@
                     <span class="user-role">${capitalizeRole(session.role)}</span>
                 `;
             }
+            function generateFeatureCards(features) {
+                const featureList = [
+                    { 
+                        key: 'superContractor', 
+                        title: 'Super Contractor', 
+                        desc: 'Manage super contractor details, contracts, and payments.',
+                        page: 'super-contractor.html',
+                        icon: '🏗️'
+                    },
+                    { 
+                        key: 'subContractor', 
+                        title: 'Sub Contractor', 
+                        desc: 'Manage sub contractor details, contracts, and payments.',
+                        page: 'sub-contractor.html',
+                        icon: '👷'
+                    },
+                    { 
+                        key: 'projectDetails', 
+                        title: 'Project Details', 
+                        desc: 'View complete project information, timeline, and progress tracking.',
+                        page: 'project-details.html',
+                        icon: '🗂️'
+                    },
+                    { 
+                        key: 'investorDetails', 
+                        title: 'Investor Details', 
+                        desc: 'Track investment amounts, returns, and investor communications.',
+                        page: 'investor-details.html',
+                        icon: '💼'
+                    },
+                    { 
+                        key: 'financerDetails', 
+                        title: 'Financer Details', 
+                        desc: 'Manage financial transactions, budgets, and expense tracking.',
+                        page: 'finance-details.html',
+                        icon: '💰'
+                    },
+                    { 
+                        key: 'labourDetails', 
+                        title: 'Labour Details', 
+                        desc: 'Monitor labour attendance, payments, and work assignments.',
+                        page: 'labour-details.html',
+                        icon: '👷‍♂️'
+                    },
+                    { 
+                        key: 'reports', 
+                        title: 'Reports', 
+                        desc: 'Generate and export comprehensive reports in various formats.',
+                        page: 'reports.html',
+                        icon: '📈'
+                    },
+                    { 
+                        key: 'settings', 
+                        title: 'Settings',
+                    }]}
 
             function loadNavigation(role) {
                 const navMenu = document.getElementById('navMenu');
