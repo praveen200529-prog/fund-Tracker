@@ -339,12 +339,6 @@
             font-style: italic;
         }
 
-        .download-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
         .loading {
             text-align: center;
             padding: 20px;
@@ -370,6 +364,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
 </head>
 <body>
     <div class="container">
@@ -382,7 +380,7 @@
 
         <div class="header">
             <h1>💰 Finance Details</h1>
-            <p>Comprehensive financial management system with income, expenses, assets, and liabilities</p>
+            <p>Comprehensive financial management system with income, expenses, assets, and liabilities (Global Firebase Storage)</p>
         </div>
 
         <div class="section">
@@ -740,136 +738,206 @@
     </div>
 
     <script>
-        // In-memory data storage
-        let incomes = JSON.parse(localStorage.getItem('incomes') || '[]');
-        let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-        let assets = JSON.parse(localStorage.getItem('assets') || '[]');
-        let liabilities = JSON.parse(localStorage.getItem('liabilities') || '[]');
+        // Firebase initialization
+        window.addEventListener('load', function() {
+            if (typeof firebase === 'undefined') {
+                console.error('Firebase not loaded!');
+                alert('Firebase connection error. Please refresh the page.');
+                return;
+            }
 
-        function saveData() {
-            localStorage.setItem('incomes', JSON.stringify(incomes));
-            localStorage.setItem('expenses', JSON.stringify(expenses));
-            localStorage.setItem('assets', JSON.stringify(assets));
-            localStorage.setItem('liabilities', JSON.stringify(liabilities));
-        }
-
-        function toggleForm(formId) {
-            const formContainer = document.getElementById(formId + 'Container');
-            const toggleText = document.getElementById(formId + 'ToggleText');
+            const database = firebase.database();
             
-            formContainer.classList.toggle('active');
-            toggleText.textContent = formContainer.classList.contains('active') ? 'Hide Form' : 'Show Form';
-        }
+            // Firebase references for global storage
+            const incomesRef = database.ref('financeIncomes');
+            const expensesRef = database.ref('financeExpenses');
+            const assetsRef = database.ref('financeAssets');
+            const liabilitiesRef = database.ref('financeLiabilities');
 
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('en-IN', {
-                style: 'currency',
-                currency: 'INR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(amount);
-        }
+            // Data arrays
+            let incomes = [];
+            let expenses = [];
+            let assets = [];
+            let liabilities = [];
 
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        }
+            // Load all data from Firebase
+            function loadAllData() {
+                incomesRef.on('value', (snap) => {
+                    const data = snap.val();
+                    incomes = data ? Object.keys(data).map(key => ({firebaseKey: key, ...data[key]})) : [];
+                    renderIncomes();
+                    updateFinancialStatements();
+                });
 
-        // Income Form
-        document.getElementById('incomeForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const income = {
-                id: Date.now(),
-                date: document.getElementById('incomeDate').value,
-                source: document.getElementById('incomeSource').value,
-                description: document.getElementById('incomeDescription').value,
-                amount: parseFloat(document.getElementById('incomeAmount').value)
-            };
+                expensesRef.on('value', (snap) => {
+                    const data = snap.val();
+                    expenses = data ? Object.keys(data).map(key => ({firebaseKey: key, ...data[key]})) : [];
+                    renderExpenses();
+                    updateFinancialStatements();
+                });
 
-            incomes.push(income);
-            saveData();
-            renderIncomes();
-            updateFinancialStatements();
-            this.reset();
-            toggleForm('incomeForm');
-            alert('✅ Income added successfully!');
-        });
+                assetsRef.on('value', (snap) => {
+                    const data = snap.val();
+                    assets = data ? Object.keys(data).map(key => ({firebaseKey: key, ...data[key]})) : [];
+                    renderAssets();
+                    updateFinancialStatements();
+                });
 
-        // Expense Form
-        document.getElementById('expenseForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const expense = {
-                id: Date.now(),
-                date: document.getElementById('expenseDate').value,
-                type: document.getElementById('expenseType').value,
-                category: document.getElementById('expenseCategory').value,
-                description: document.getElementById('expenseDescription').value,
-                amount: parseFloat(document.getElementById('expenseAmount').value)
-            };
+                liabilitiesRef.on('value', (snap) => {
+                    const data = snap.val();
+                    liabilities = data ? Object.keys(data).map(key => ({firebaseKey: key, ...data[key]})) : [];
+                    renderLiabilities();
+                    updateFinancialStatements();
+                });
+            }
 
-            expenses.push(expense);
-            saveData();
-            renderExpenses();
-            updateFinancialStatements();
-            this.reset();
-            toggleForm('expenseForm');
-            alert('✅ Expense added successfully!');
-        });
+            function toggleForm(formId) {
+                const formContainer = document.getElementById(formId + 'Container');
+                const toggleText = document.getElementById(formId + 'ToggleText');
+                
+                formContainer.classList.toggle('active');
+                toggleText.textContent = formContainer.classList.contains('active') ? 'Hide Form' : 'Show Form';
+            }
 
-        // Asset Form
-        document.getElementById('assetForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const cost = parseFloat(document.getElementById('assetCost').value);
-            const usefulLife = parseInt(document.getElementById('assetUsefulLife').value);
-            
-            const asset = {
-                id: Date.now(),
-                name: document.getElementById('assetName').value,
-                purchaseDate: document.getElementById('assetPurchaseDate').value,
-                cost: cost,
-                usefulLife: usefulLife,
-                depreciation: cost / usefulLife
-            };
+            window.toggleForm = toggleForm;
 
-            assets.push(asset);
-            saveData();
-            renderAssets();
-            updateFinancialStatements();
-            this.reset();
-            toggleForm('assetForm');
-            alert('✅ Asset added successfully!');
-        });
+            function formatCurrency(amount) {
+                return new Intl.NumberFormat('en-IN', {
+                    style: 'currency',
+                    currency: 'INR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(amount);
+            }
 
-        // Liability Form
-        document.getElementById('liabilityForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const liability = {
-                id: Date.now(),
-                name: document.getElementById('liabilityName').value,
-                type: document.getElementById('liabilityType').value,
-                amount: parseFloat(document.getElementById('liabilityAmount').value),
-                interest: parseFloat(document.getElementById('liabilityInterest').value),
-                dueDate: document.getElementById('liabilityDueDate').value
-            };
+            function formatDate(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            }
 
-            liabilities.push(liability);
-            saveData();
-            renderLiabilities();
-            updateFinancialStatements();
-            this.reset();
-            toggleForm('liabilityForm');
-            alert('✅ Liability added successfully!');
-        });
+            // Income Form
+            document.getElementById('incomeForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const incomeData = {
+                    date: document.getElementById('incomeDate').value,
+                    source: document.getElementById('incomeSource').value,
+                    description: document.getElementById('incomeDescription').value,
+                    amount: parseFloat(document.getElementById('incomeAmount').value),
+                    createdAt: new Date().toISOString(),
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
 
-        // Render Functions
-        function renderIncomes() {
-            const container = document.getElementById('incomeDataDisplay');
-            
-            if (incomes.length === 0) {
+                incomesRef.push(incomeData).then(() => {
+                    alert('✅ Income added successfully!');
+                    this.reset();
+                    toggleForm('incomeForm');
+                }).catch(err => {
+                    alert('❌ Error: ' + err.message);
+                });
+            });
+
+            // Expense Form
+            document.getElementById('expenseForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const expenseData = {
+                    date: document.getElementById('expenseDate').value,
+                    type: document.getElementById('expenseType').value,
+                    category: document.getElementById('expenseCategory').value,
+                    description: document.getElementById('expenseDescription').value,
+                    amount: parseFloat(document.getElementById('expenseAmount').value),
+                    createdAt: new Date().toISOString(),
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+
+                expensesRef.push(expenseData).then(() => {
+                    alert('✅ Expense added successfully!');
+                    this.reset();
+                    toggleForm('expenseForm');
+                }).catch(err => {
+                    alert('❌ Error: ' + err.message);
+                });
+            });
+
+            // Asset Form
+            document.getElementById('assetForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const cost = parseFloat(document.getElementById('assetCost').value);
+                const usefulLife = parseInt(document.getElementById('assetUsefulLife').value);
+                
+                const assetData = {
+                    name: document.getElementById('assetName').value,
+                    purchaseDate: document.getElementById('assetPurchaseDate').value,
+                    cost: cost,
+                    usefulLife: usefulLife,
+                    depreciation: cost / usefulLife,
+                    createdAt: new Date().toISOString(),
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+
+                assetsRef.push(assetData).then(() => {
+                    alert('✅ Asset added successfully!');
+                    this.reset();
+                    toggleForm('assetForm');
+                }).catch(err => {
+                    alert('❌ Error: ' + err.message);
+                });
+            });
+
+            // Liability Form
+            document.getElementById('liabilityForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const liabilityData = {
+                    name: document.getElementById('liabilityName').value,
+                    type: document.getElementById('liabilityType').value,
+                    amount: parseFloat(document.getElementById('liabilityAmount').value),
+                    interest: parseFloat(document.getElementById('liabilityInterest').value),
+                    dueDate: document.getElementById('liabilityDueDate').value,
+                    createdAt: new Date().toISOString(),
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+
+                liabilitiesRef.push(liabilityData).then(() => {
+                    alert('✅ Liability added successfully!');
+                    this.reset();
+                    toggleForm('liabilityForm');
+                }).catch(err => {
+                    alert('❌ Error: ' + err.message);
+                });
+            });
+
+            // Render Functions
+            function renderIncomes() {
+                const container = document.getElementById('incomeDataDisplay');
+                
+                if (incomes.length === 0) {
+                    container.innerHTML = `
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Source</th>
+                                    <th>Description</th>
+                                    <th>Amount (₹)</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="empty-state">
+                                        📈 No income records yet
+                                        <p>Add income using the form below</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    `;
+                    return;
+                }
+
                 container.innerHTML = `
                     <table class="data-table">
                         <thead>
@@ -882,48 +950,49 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td colspan="5" class="empty-state">
-                                    📈 No income records yet
-                                    <p>Add income using the form below</p>
-                                </td>
-                            </tr>
+                            ${incomes.map(income => `
+                                <tr>
+                                    <td>${formatDate(income.date)}</td>
+                                    <td>${income.source}</td>
+                                    <td>${income.description}</td>
+                                    <td>${formatCurrency(income.amount)}</td>
+                                    <td><button class="btn btn-danger" onclick="deleteIncome('${income.firebaseKey}')">🗑️ Delete</button></td>
+                                </tr>
+                            `).join('')}
                         </tbody>
                     </table>
                 `;
-                return;
             }
 
-            container.innerHTML = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Source</th>
-                            <th>Description</th>
-                            <th>Amount (₹)</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${incomes.map(income => `
-                            <tr>
-                                <td>${formatDate(income.date)}</td>
-                                <td>${income.source}</td>
-                                <td>${income.description}</td>
-                                <td>${formatCurrency(income.amount)}</td>
-                                <td><button class="btn btn-danger" onclick="deleteIncome(${income.id})">🗑️ Delete</button></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
+            function renderExpenses() {
+                const container = document.getElementById('expenseDataDisplay');
+                
+                if (expenses.length === 0) {
+                    container.innerHTML = `
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Amount (₹)</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        📉 No expense records yet
+                                        <p>Add expenses using the form below</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    `;
+                    return;
+                }
 
-        function renderExpenses() {
-            const container = document.getElementById('expenseDataDisplay');
-            
-            if (expenses.length === 0) {
                 container.innerHTML = `
                     <table class="data-table">
                         <thead>
@@ -937,50 +1006,50 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td colspan="6" class="empty-state">
-                                    📉 No expense records yet
-                                    <p>Add expenses using the form below</p>
-                                </td>
-                            </tr>
+                            ${expenses.map(expense => `
+                                <tr>
+                                    <td>${formatDate(expense.date)}</td>
+                                    <td>${expense.type}</td>
+                                    <td>${expense.category}</td>
+                                    <td>${expense.description}</td>
+                                    <td>${formatCurrency(expense.amount)}</td>
+                                    <td><button class="btn btn-danger" onclick="deleteExpense('${expense.firebaseKey}')">🗑️ Delete</button></td>
+                                </tr>
+                            `).join('')}
                         </tbody>
                     </table>
                 `;
-                return;
             }
 
-            container.innerHTML = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Category</th>
-                            <th>Description</th>
-                            <th>Amount (₹)</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${expenses.map(expense => `
-                            <tr>
-                                <td>${formatDate(expense.date)}</td>
-                                <td>${expense.type}</td>
-                                <td>${expense.category}</td>
-                                <td>${expense.description}</td>
-                                <td>${formatCurrency(expense.amount)}</td>
-                                <td><button class="btn btn-danger" onclick="deleteExpense(${expense.id})">🗑️ Delete</button></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
+            function renderAssets() {
+                const container = document.getElementById('assetDataDisplay');
+                
+                if (assets.length === 0) {
+                    container.innerHTML = `
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Asset Name</th>
+                                    <th>Purchase Date</th>
+                                    <th>Cost (₹)</th>
+                                    <th>Useful Life (Years)</th>
+                                    <th>Depreciation/Year (₹)</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        🏢 No asset records yet
+                                        <p>Add assets using the form below</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    `;
+                    return;
+                }
 
-        function renderAssets() {
-            const container = document.getElementById('assetDataDisplay');
-            
-            if (assets.length === 0) {
                 container.innerHTML = `
                     <table class="data-table">
                         <thead>
@@ -994,50 +1063,50 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td colspan="6" class="empty-state">
-                                    🏢 No asset records yet
-                                    <p>Add assets using the form below</p>
-                                </td>
-                            </tr>
+                            ${assets.map(asset => `
+                                <tr>
+                                    <td>${asset.name}</td>
+                                    <td>${formatDate(asset.purchaseDate)}</td>
+                                    <td>${formatCurrency(asset.cost)}</td>
+                                    <td>${asset.usefulLife}</td>
+                                    <td>${formatCurrency(asset.depreciation)}</td>
+                                    <td><button class="btn btn-danger" onclick="deleteAsset('${asset.firebaseKey}')">🗑️ Delete</button></td>
+                                </tr>
+                            `).join('')}
                         </tbody>
                     </table>
                 `;
-                return;
             }
 
-            container.innerHTML = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Asset Name</th>
-                            <th>Purchase Date</th>
-                            <th>Cost (₹)</th>
-                            <th>Useful Life (Years)</th>
-                            <th>Depreciation/Year (₹)</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${assets.map(asset => `
-                            <tr>
-                                <td>${asset.name}</td>
-                                <td>${formatDate(asset.purchaseDate)}</td>
-                                <td>${formatCurrency(asset.cost)}</td>
-                                <td>${asset.usefulLife}</td>
-                                <td>${formatCurrency(asset.depreciation)}</td>
-                                <td><button class="btn btn-danger" onclick="deleteAsset(${asset.id})">🗑️ Delete</button></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
+            function renderLiabilities() {
+                const container = document.getElementById('liabilityDataDisplay');
+                
+                if (liabilities.length === 0) {
+                    container.innerHTML = `
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Liability Name</th>
+                                    <th>Type</th>
+                                    <th>Amount (₹)</th>
+                                    <th>Interest %</th>
+                                    <th>Due Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        📋 No liability records yet
+                                        <p>Add liabilities using the form below</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    `;
+                    return;
+                }
 
-        function renderLiabilities() {
-            const container = document.getElementById('liabilityDataDisplay');
-            
-            if (liabilities.length === 0) {
                 container.innerHTML = `
                     <table class="data-table">
                         <thead>
@@ -1051,384 +1120,356 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td colspan="6" class="empty-state">
-                                    📋 No liability records yet
-                                    <p>Add liabilities using the form below</p>
-                                </td>
-                            </tr>
+                            ${liabilities.map(liability => `
+                                <tr>
+                                    <td>${liability.name}</td>
+                                    <td>${liability.type}</td>
+                                    <td>${formatCurrency(liability.amount)}</td>
+                                    <td>${liability.interest}%</td>
+                                    <td>${formatDate(liability.dueDate)}</td>
+                                    <td><button class="btn btn-danger" onclick="deleteLiability('${liability.firebaseKey}')">🗑️ Delete</button></td>
+                                </tr>
+                            `).join('')}
                         </tbody>
                     </table>
                 `;
-                return;
             }
 
-            container.innerHTML = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Liability Name</th>
-                            <th>Type</th>
-                            <th>Amount (₹)</th>
-                            <th>Interest %</th>
-                            <th>Due Date</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${liabilities.map(liability => `
-                            <tr>
-                                <td>${liability.name}</td>
-                                <td>${liability.type}</td>
-                                <td>${formatCurrency(liability.amount)}</td>
-                                <td>${liability.interest}%</td>
-                                <td>${formatDate(liability.dueDate)}</td>
-                                <td><button class="btn btn-danger" onclick="deleteLiability(${liability.id})">🗑️ Delete</button></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
+            // Delete Functions
+            window.deleteIncome = function(key) {
+                if (confirm('⚠️ Are you sure you want to delete this income record?')) {
+                    incomesRef.child(key).remove().then(() => {
+                        alert('✅ Income deleted successfully!');
+                    }).catch(err => {
+                        alert('❌ Error: ' + err.message);
+                    });
+                }
+            };
 
-        // Delete Functions
-        window.deleteIncome = function(id) {
-            if (confirm('⚠️ Are you sure you want to delete this income record?')) {
-                incomes = incomes.filter(i => i.id !== id);
-                saveData();
-                renderIncomes();
-                updateFinancialStatements();
-                alert('✅ Income deleted successfully!');
-            }
-        };
+            window.deleteExpense = function(key) {
+                if (confirm('⚠️ Are you sure you want to delete this expense record?')) {
+                    expensesRef.child(key).remove().then(() => {
+                        alert('✅ Expense deleted successfully!');
+                    }).catch(err => {
+                        alert('❌ Error: ' + err.message);
+                    });
+                }
+            };
 
-        window.deleteExpense = function(id) {
-            if (confirm('⚠️ Are you sure you want to delete this expense record?')) {
-                expenses = expenses.filter(e => e.id !== id);
-                saveData();
-                renderExpenses();
-                updateFinancialStatements();
-                alert('✅ Expense deleted successfully!');
-            }
-        };
+            window.deleteAsset = function(key) {
+                if (confirm('⚠️ Are you sure you want to delete this asset record?')) {
+                    assetsRef.child(key).remove().then(() => {
+                        alert('✅ Asset deleted successfully!');
+                    }).catch(err => {
+                        alert('❌ Error: ' + err.message);
+                    });
+                }
+            };
 
-        window.deleteAsset = function(id) {
-            if (confirm('⚠️ Are you sure you want to delete this asset record?')) {
-                assets = assets.filter(a => a.id !== id);
-                saveData();
-                renderAssets();
-                updateFinancialStatements();
-                alert('✅ Asset deleted successfully!');
-            }
-        };
+            window.deleteLiability = function(key) {
+                if (confirm('⚠️ Are you sure you want to delete this liability record?')) {
+                    liabilitiesRef.child(key).remove().then(() => {
+                        alert('✅ Liability deleted successfully!');
+                    }).catch(err => {
+                        alert('❌ Error: ' + err.message);
+                    });
+                }
+            };
 
-        window.deleteLiability = function(id) {
-            if (confirm('⚠️ Are you sure you want to delete this liability record?')) {
-                liabilities = liabilities.filter(l => l.id !== id);
-                saveData();
-                renderLiabilities();
-                updateFinancialStatements();
-                alert('✅ Liability deleted successfully!');
-            }
-        };
-
-        // Update Financial Statements
-        function updateFinancialStatements() {
-            const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
-            const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
-            const netProfit = totalIncome - totalExpense;
-            
-            const totalAssetValue = assets.reduce((sum, a) => sum + a.cost, 0);
-            const totalLiabilityValue = liabilities.reduce((sum, l) => sum + l.amount, 0);
-            
-            const loans = liabilities.filter(l => l.type === 'Bank Loan').reduce((sum, l) => sum + l.amount, 0);
-            const payables = liabilities.filter(l => l.type === 'Payable').reduce((sum, l) => sum + l.amount, 0);
-            
-            // Update P&L
-            document.getElementById('totalIncome').textContent = formatCurrency(totalIncome);
-            document.getElementById('totalExpenses').textContent = formatCurrency(totalExpense);
-            document.getElementById('netProfit').textContent = formatCurrency(netProfit);
-            document.getElementById('netProfit').className = netProfit >= 0 ? 'statement-value positive' : 'statement-value negative';
-            
-            // Update Balance Sheet
-            document.getElementById('cashBank').textContent = formatCurrency(netProfit);
-            document.getElementById('fixedAssets').textContent = formatCurrency(totalAssetValue);
-            document.getElementById('totalAssets').textContent = formatCurrency(netProfit + totalAssetValue);
-            document.getElementById('totalLoans').textContent = formatCurrency(loans);
-            document.getElementById('totalPayables').textContent = formatCurrency(payables);
-            document.getElementById('totalLiabilities').textContent = formatCurrency(totalLiabilityValue);
-            
-            // Update Cash Flow
-            const operatingExpenses = expenses.filter(e => e.type === 'Operating').reduce((sum, e) => sum + e.amount, 0);
-            const capitalExpenses = expenses.filter(e => e.type === 'Capital').reduce((sum, e) => sum + e.amount, 0);
-            
-            document.getElementById('operatingIn').textContent = formatCurrency(totalIncome);
-            document.getElementById('operatingOut').textContent = formatCurrency(operatingExpenses);
-            document.getElementById('operatingNet').textContent = formatCurrency(totalIncome - operatingExpenses);
-            document.getElementById('investingOut').textContent = formatCurrency(capitalExpenses);
-            document.getElementById('investingNet').textContent = formatCurrency(-capitalExpenses);
-            document.getElementById('financingIn').textContent = formatCurrency(loans);
-            document.getElementById('financingNet').textContent = formatCurrency(loans);
-            
-            // Update Ratios
-            const currentAssets = netProfit + totalAssetValue;
-            const currentLiabilities = totalLiabilityValue || 1;
-            const currentRatio = (currentAssets / currentLiabilities).toFixed(2);
-            document.getElementById('currentRatio').textContent = currentRatio;
-            
-            const profitMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : 0;
-            document.getElementById('profitMargin').textContent = profitMargin + '%';
-            
-            const equity = currentAssets - totalLiabilityValue || 1;
-            const roe = ((netProfit / equity) * 100).toFixed(1);
-            document.getElementById('roe').textContent = roe + '%';
-            
-            const operatingCashFlow = totalIncome - operatingExpenses;
-            const dscr = totalLiabilityValue > 0 ? (operatingCashFlow / totalLiabilityValue).toFixed(2) : 0;
-            document.getElementById('dscr').textContent = dscr;
-        }
-
-        // Download Functions
-        window.downloadIncomeData = function(format) {
-            if (incomes.length === 0) {
-                alert('No income data to download!');
-                return;
+            // Update Financial Statements
+            function updateFinancialStatements() {
+                const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
+                const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
+                const netProfit = totalIncome - totalExpense;
+                
+                const totalAssetValue = assets.reduce((sum, a) => sum + a.cost, 0);
+                const totalLiabilityValue = liabilities.reduce((sum, l) => sum + l.amount, 0);
+                
+                const loans = liabilities.filter(l => l.type === 'Bank Loan').reduce((sum, l) => sum + l.amount, 0);
+                const payables = liabilities.filter(l => l.type === 'Payable').reduce((sum, l) => sum + l.amount, 0);
+                
+                // Update P&L
+                document.getElementById('totalIncome').textContent = formatCurrency(totalIncome);
+                document.getElementById('totalExpenses').textContent = formatCurrency(totalExpense);
+                document.getElementById('netProfit').textContent = formatCurrency(netProfit);
+                document.getElementById('netProfit').className = netProfit >= 0 ? 'statement-value positive' : 'statement-value negative';
+                
+                // Update Balance Sheet
+                document.getElementById('cashBank').textContent = formatCurrency(netProfit);
+                document.getElementById('fixedAssets').textContent = formatCurrency(totalAssetValue);
+                document.getElementById('totalAssets').textContent = formatCurrency(netProfit + totalAssetValue);
+                document.getElementById('totalLoans').textContent = formatCurrency(loans);
+                document.getElementById('totalPayables').textContent = formatCurrency(payables);
+                document.getElementById('totalLiabilities').textContent = formatCurrency(totalLiabilityValue);
+                
+                // Update Cash Flow
+                const operatingExpenses = expenses.filter(e => e.type === 'Operating').reduce((sum, e) => sum + e.amount, 0);
+                const capitalExpenses = expenses.filter(e => e.type === 'Capital').reduce((sum, e) => sum + e.amount, 0);
+                
+                document.getElementById('operatingIn').textContent = formatCurrency(totalIncome);
+                document.getElementById('operatingOut').textContent = formatCurrency(operatingExpenses);
+                document.getElementById('operatingNet').textContent = formatCurrency(totalIncome - operatingExpenses);
+                document.getElementById('investingOut').textContent = formatCurrency(capitalExpenses);
+                document.getElementById('investingNet').textContent = formatCurrency(-capitalExpenses);
+                document.getElementById('financingIn').textContent = formatCurrency(loans);
+                document.getElementById('financingNet').textContent = formatCurrency(loans);
+                
+                // Update Ratios
+                const currentAssets = netProfit + totalAssetValue;
+                const currentLiabilities = totalLiabilityValue || 1;
+                const currentRatio = (currentAssets / currentLiabilities).toFixed(2);
+                document.getElementById('currentRatio').textContent = currentRatio;
+                
+                const profitMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : 0;
+                document.getElementById('profitMargin').textContent = profitMargin + '%';
+                
+                const equity = currentAssets - totalLiabilityValue || 1;
+                const roe = ((netProfit / equity) * 100).toFixed(1);
+                document.getElementById('roe').textContent = roe + '%';
+                
+                const operatingCashFlow = totalIncome - operatingExpenses;
+                const dscr = totalLiabilityValue > 0 ? (operatingCashFlow / totalLiabilityValue).toFixed(2) : 0;
+                document.getElementById('dscr').textContent = dscr;
             }
 
-            const data = incomes.map(i => ({
-                'Date': formatDate(i.date),
-                'Source': i.source,
-                'Description': i.description,
-                'Amount (₹)': i.amount
-            }));
+            // Download Functions
+            window.downloadIncomeData = function(format) {
+                if (incomes.length === 0) {
+                    alert('No income data to download!');
+                    return;
+                }
 
-            downloadData(data, 'Income_Records', format);
-        };
-
-        window.downloadExpenseData = function(format) {
-            if (expenses.length === 0) {
-                alert('No expense data to download!');
-                return;
-            }
-
-            const data = expenses.map(e => ({
-                'Date': formatDate(e.date),
-                'Type': e.type,
-                'Category': e.category,
-                'Description': e.description,
-                'Amount (₹)': e.amount
-            }));
-
-            downloadData(data, 'Expense_Records', format);
-        };
-
-        window.downloadAssetData = function(format) {
-            if (assets.length === 0) {
-                alert('No asset data to download!');
-                return;
-            }
-
-            const data = assets.map(a => ({
-                'Asset Name': a.name,
-                'Purchase Date': formatDate(a.purchaseDate),
-                'Cost (₹)': a.cost,
-                'Useful Life (Years)': a.usefulLife,
-                'Depreciation/Year (₹)': a.depreciation
-            }));
-
-            downloadData(data, 'Asset_Records', format);
-        };
-
-        window.downloadLiabilityData = function(format) {
-            if (liabilities.length === 0) {
-                alert('No liability data to download!');
-                return;
-            }
-
-            const data = liabilities.map(l => ({
-                'Liability Name': l.name,
-                'Type': l.type,
-                'Amount (₹)': l.amount,
-                'Interest %': l.interest,
-                'Due Date': formatDate(l.dueDate)
-            }));
-
-            downloadData(data, 'Liability_Records', format);
-        };
-
-        window.downloadAllStatements = function() {
-            const wb = XLSX.utils.book_new();
-
-            // Calculate financial data
-            const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
-            const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
-            const netProfit = totalIncome - totalExpense;
-            const totalAssetValue = assets.reduce((sum, a) => sum + a.cost, 0);
-            const totalLiabilityValue = liabilities.reduce((sum, l) => sum + l.amount, 0);
-            const loans = liabilities.filter(l => l.type === 'Bank Loan').reduce((sum, l) => sum + l.amount, 0);
-            const payables = liabilities.filter(l => l.type === 'Payable').reduce((sum, l) => sum + l.amount, 0);
-            const operatingExpenses = expenses.filter(e => e.type === 'Operating').reduce((sum, e) => sum + e.amount, 0);
-            const capitalExpenses = expenses.filter(e => e.type === 'Capital').reduce((sum, e) => sum + e.amount, 0);
-
-            // Income Sheet
-            if (incomes.length > 0) {
-                const incomeData = incomes.map(i => ({
+                const data = incomes.map(i => ({
                     'Date': formatDate(i.date),
                     'Source': i.source,
                     'Description': i.description,
-                    'Amount': i.amount
+                    'Amount (₹)': i.amount
                 }));
-                const ws1 = XLSX.utils.json_to_sheet(incomeData);
-                XLSX.utils.book_append_sheet(wb, ws1, 'Income');
-            }
 
-            // Expense Sheet
-            if (expenses.length > 0) {
-                const expenseData = expenses.map(e => ({
+                downloadData(data, 'Income_Records', format);
+            };
+
+            window.downloadExpenseData = function(format) {
+                if (expenses.length === 0) {
+                    alert('No expense data to download!');
+                    return;
+                }
+
+                const data = expenses.map(e => ({
                     'Date': formatDate(e.date),
                     'Type': e.type,
                     'Category': e.category,
                     'Description': e.description,
-                    'Amount': e.amount
+                    'Amount (₹)': e.amount
                 }));
-                const ws2 = XLSX.utils.json_to_sheet(expenseData);
-                XLSX.utils.book_append_sheet(wb, ws2, 'Expenses');
-            }
 
-            // Asset Sheet
-            if (assets.length > 0) {
-                const assetData = assets.map(a => ({
+                downloadData(data, 'Expense_Records', format);
+            };
+
+            window.downloadAssetData = function(format) {
+                if (assets.length === 0) {
+                    alert('No asset data to download!');
+                    return;
+                }
+
+                const data = assets.map(a => ({
                     'Asset Name': a.name,
                     'Purchase Date': formatDate(a.purchaseDate),
-                    'Cost': a.cost,
-                    'Useful Life': a.usefulLife,
-                    'Depreciation': a.depreciation
+                    'Cost (₹)': a.cost,
+                    'Useful Life (Years)': a.usefulLife,
+                    'Depreciation/Year (₹)': a.depreciation
                 }));
-                const ws3 = XLSX.utils.json_to_sheet(assetData);
-                XLSX.utils.book_append_sheet(wb, ws3, 'Assets');
-            }
 
-            // Liability Sheet
-            if (liabilities.length > 0) {
-                const liabilityData = liabilities.map(l => ({
+                downloadData(data, 'Asset_Records', format);
+            };
+
+            window.downloadLiabilityData = function(format) {
+                if (liabilities.length === 0) {
+                    alert('No liability data to download!');
+                    return;
+                }
+
+                const data = liabilities.map(l => ({
                     'Liability Name': l.name,
                     'Type': l.type,
-                    'Amount': l.amount,
-                    'Interest': l.interest,
+                    'Amount (₹)': l.amount,
+                    'Interest %': l.interest,
                     'Due Date': formatDate(l.dueDate)
                 }));
-                const ws4 = XLSX.utils.json_to_sheet(liabilityData);
-                XLSX.utils.book_append_sheet(wb, ws4, 'Liabilities');
-            }
 
-            // Profit & Loss Statement
-            const plData = [
-                { 'Particulars': 'Total Income', 'Amount (₹)': totalIncome },
-                { 'Particulars': 'Total Expenses', 'Amount (₹)': totalExpense },
-                { 'Particulars': 'Net Profit/Loss', 'Amount (₹)': netProfit }
-            ];
-            const ws5 = XLSX.utils.json_to_sheet(plData);
-            XLSX.utils.book_append_sheet(wb, ws5, 'Profit & Loss');
+                downloadData(data, 'Liability_Records', format);
+            };
 
-            // Balance Sheet
-            const bsData = [
-                { 'Category': 'ASSETS', 'Particulars': '', 'Amount (₹)': '' },
-                { 'Category': '', 'Particulars': 'Cash & Bank', 'Amount (₹)': netProfit },
-                { 'Category': '', 'Particulars': 'Fixed Assets', 'Amount (₹)': totalAssetValue },
-                { 'Category': '', 'Particulars': 'Total Assets', 'Amount (₹)': netProfit + totalAssetValue },
-                { 'Category': '', 'Particulars': '', 'Amount (₹)': '' },
-                { 'Category': 'LIABILITIES', 'Particulars': '', 'Amount (₹)': '' },
-                { 'Category': '', 'Particulars': 'Loans', 'Amount (₹)': loans },
-                { 'Category': '', 'Particulars': 'Payables', 'Amount (₹)': payables },
-                { 'Category': '', 'Particulars': 'Total Liabilities', 'Amount (₹)': totalLiabilityValue }
-            ];
-            const ws6 = XLSX.utils.json_to_sheet(bsData);
-            XLSX.utils.book_append_sheet(wb, ws6, 'Balance Sheet');
-
-            // Cash Flow Statement
-            const cfData = [
-                { 'Activity': 'Operating', 'Cash In (₹)': totalIncome, 'Cash Out (₹)': operatingExpenses, 'Net (₹)': totalIncome - operatingExpenses },
-                { 'Activity': 'Investing', 'Cash In (₹)': 0, 'Cash Out (₹)': capitalExpenses, 'Net (₹)': -capitalExpenses },
-                { 'Activity': 'Financing', 'Cash In (₹)': loans, 'Cash Out (₹)': 0, 'Net (₹)': loans }
-            ];
-            const ws7 = XLSX.utils.json_to_sheet(cfData);
-            XLSX.utils.book_append_sheet(wb, ws7, 'Cash Flow');
-
-            // Financial Ratios
-            const currentAssets = netProfit + totalAssetValue;
-            const currentLiabilities = totalLiabilityValue || 1;
-            const currentRatio = (currentAssets / currentLiabilities).toFixed(2);
-            const profitMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : 0;
-            const equity = currentAssets - totalLiabilityValue || 1;
-            const roe = ((netProfit / equity) * 100).toFixed(1);
-            const operatingCashFlow = totalIncome - operatingExpenses;
-            const dscr = totalLiabilityValue > 0 ? (operatingCashFlow / totalLiabilityValue).toFixed(2) : 0;
-
-            const ratioData = [
-                { 'Ratio': 'Current Ratio', 'Value': currentRatio, 'Formula': 'Current Assets / Current Liabilities' },
-                { 'Ratio': 'Net Profit Margin', 'Value': profitMargin + '%', 'Formula': 'Net Profit / Revenue × 100' },
-                { 'Ratio': 'ROE (Return on Equity)', 'Value': roe + '%', 'Formula': 'Net Profit / Equity × 100' },
-                { 'Ratio': 'DSCR (Debt Service Coverage)', 'Value': dscr, 'Formula': 'Operating Cash Flow / Debt' }
-            ];
-            const ws8 = XLSX.utils.json_to_sheet(ratioData);
-            XLSX.utils.book_append_sheet(wb, ws8, 'Financial Ratios');
-
-            XLSX.writeFile(wb, 'Complete_Financial_Report_' + new Date().toISOString().split('T')[0] + '.xlsx');
-        };
-
-        function downloadData(data, filename, format) {
-            if (format === 'excel') {
-                const ws = XLSX.utils.json_to_sheet(data);
+            window.downloadAllStatements = function() {
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-                XLSX.writeFile(wb, filename + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
-            } else if (format === 'csv') {
-                const ws = XLSX.utils.json_to_sheet(data);
-                const csv = XLSX.utils.sheet_to_csv(ws);
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename + '_' + new Date().toISOString().split('T')[0] + '.csv';
-                a.click();
-            } else if (format === 'pdf') {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                doc.setFontSize(16);
-                doc.text(filename, 14, 15);
-                doc.setFontSize(10);
-                doc.text('Generated on: ' + new Date().toLocaleDateString(), 14, 22);
-                
-                const headers = Object.keys(data[0]);
-                const rows = data.map(item => headers.map(key => item[key]));
-                
-                doc.autoTable({
-                    head: [headers],
-                    body: rows,
-                    startY: 30,
-                    theme: 'grid',
-                    styles: { fontSize: 8 }
-                });
-                
-                doc.save(filename + '_' + new Date().toISOString().split('T')[0] + '.pdf');
+
+                // Calculate financial data
+                const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
+                const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
+                const netProfit = totalIncome - totalExpense;
+                const totalAssetValue = assets.reduce((sum, a) => sum + a.cost, 0);
+                const totalLiabilityValue = liabilities.reduce((sum, l) => sum + l.amount, 0);
+                const loans = liabilities.filter(l => l.type === 'Bank Loan').reduce((sum, l) => sum + l.amount, 0);
+                const payables = liabilities.filter(l => l.type === 'Payable').reduce((sum, l) => sum + l.amount, 0);
+                const operatingExpenses = expenses.filter(e => e.type === 'Operating').reduce((sum, e) => sum + e.amount, 0);
+                const capitalExpenses = expenses.filter(e => e.type === 'Capital').reduce((sum, e) => sum + e.amount, 0);
+
+                // Income Sheet
+                if (incomes.length > 0) {
+                    const incomeData = incomes.map(i => ({
+                        'Date': formatDate(i.date),
+                        'Source': i.source,
+                        'Description': i.description,
+                        'Amount': i.amount
+                    }));
+                    const ws1 = XLSX.utils.json_to_sheet(incomeData);
+                    XLSX.utils.book_append_sheet(wb, ws1, 'Income');
+                }
+
+                // Expense Sheet
+                if (expenses.length > 0) {
+                    const expenseData = expenses.map(e => ({
+                        'Date': formatDate(e.date),
+                        'Type': e.type,
+                        'Category': e.category,
+                        'Description': e.description,
+                        'Amount': e.amount
+                    }));
+                    const ws2 = XLSX.utils.json_to_sheet(expenseData);
+                    XLSX.utils.book_append_sheet(wb, ws2, 'Expenses');
+                }
+
+                // Asset Sheet
+                if (assets.length > 0) {
+                    const assetData = assets.map(a => ({
+                        'Asset Name': a.name,
+                        'Purchase Date': formatDate(a.purchaseDate),
+                        'Cost': a.cost,
+                        'Useful Life': a.usefulLife,
+                        'Depreciation': a.depreciation
+                    }));
+                    const ws3 = XLSX.utils.json_to_sheet(assetData);
+                    XLSX.utils.book_append_sheet(wb, ws3, 'Assets');
+                }
+
+                // Liability Sheet
+                if (liabilities.length > 0) {
+                    const liabilityData = liabilities.map(l => ({
+                        'Liability Name': l.name,
+                        'Type': l.type,
+                        'Amount': l.amount,
+                        'Interest': l.interest,
+                        'Due Date': formatDate(l.dueDate)
+                    }));
+                    const ws4 = XLSX.utils.json_to_sheet(liabilityData);
+                    XLSX.utils.book_append_sheet(wb, ws4, 'Liabilities');
+                }
+
+                // Profit & Loss Statement
+                const plData = [
+                    { 'Particulars': 'Total Income', 'Amount (₹)': totalIncome },
+                    { 'Particulars': 'Total Expenses', 'Amount (₹)': totalExpense },
+                    { 'Particulars': 'Net Profit/Loss', 'Amount (₹)': netProfit }
+                ];
+                const ws5 = XLSX.utils.json_to_sheet(plData);
+                XLSX.utils.book_append_sheet(wb, ws5, 'Profit & Loss');
+
+                // Balance Sheet
+                const bsData = [
+                    { 'Category': 'ASSETS', 'Particulars': '', 'Amount (₹)': '' },
+                    { 'Category': '', 'Particulars': 'Cash & Bank', 'Amount (₹)': netProfit },
+                    { 'Category': '', 'Particulars': 'Fixed Assets', 'Amount (₹)': totalAssetValue },
+                    { 'Category': '', 'Particulars': 'Total Assets', 'Amount (₹)': netProfit + totalAssetValue },
+                    { 'Category': '', 'Particulars': '', 'Amount (₹)': '' },
+                    { 'Category': 'LIABILITIES', 'Particulars': '', 'Amount (₹)': '' },
+                    { 'Category': '', 'Particulars': 'Loans', 'Amount (₹)': loans },
+                    { 'Category': '', 'Particulars': 'Payables', 'Amount (₹)': payables },
+                    { 'Category': '', 'Particulars': 'Total Liabilities', 'Amount (₹)': totalLiabilityValue }
+                ];
+                const ws6 = XLSX.utils.json_to_sheet(bsData);
+                XLSX.utils.book_append_sheet(wb, ws6, 'Balance Sheet');
+
+                // Cash Flow Statement
+                const cfData = [
+                    { 'Activity': 'Operating', 'Cash In (₹)': totalIncome, 'Cash Out (₹)': operatingExpenses, 'Net (₹)': totalIncome - operatingExpenses },
+                    { 'Activity': 'Investing', 'Cash In (₹)': 0, 'Cash Out (₹)': capitalExpenses, 'Net (₹)': -capitalExpenses },
+                    { 'Activity': 'Financing', 'Cash In (₹)': loans, 'Cash Out (₹)': 0, 'Net (₹)': loans }
+                ];
+                const ws7 = XLSX.utils.json_to_sheet(cfData);
+                XLSX.utils.book_append_sheet(wb, ws7, 'Cash Flow');
+
+                // Financial Ratios
+                const currentAssets = netProfit + totalAssetValue;
+                const currentLiabilities = totalLiabilityValue || 1;
+                const currentRatio = (currentAssets / currentLiabilities).toFixed(2);
+                const profitMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : 0;
+                const equity = currentAssets - totalLiabilityValue || 1;
+                const roe = ((netProfit / equity) * 100).toFixed(1);
+                const operatingCashFlow = totalIncome - operatingExpenses;
+                const dscr = totalLiabilityValue > 0 ? (operatingCashFlow / totalLiabilityValue).toFixed(2) : 0;
+
+                const ratioData = [
+                    { 'Ratio': 'Current Ratio', 'Value': currentRatio, 'Formula': 'Current Assets / Current Liabilities' },
+                    { 'Ratio': 'Net Profit Margin', 'Value': profitMargin + '%', 'Formula': 'Net Profit / Revenue × 100' },
+                    { 'Ratio': 'ROE (Return on Equity)', 'Value': roe + '%', 'Formula': 'Net Profit / Equity × 100' },
+                    { 'Ratio': 'DSCR (Debt Service Coverage)', 'Value': dscr, 'Formula': 'Operating Cash Flow / Debt' }
+                ];
+                const ws8 = XLSX.utils.json_to_sheet(ratioData);
+                XLSX.utils.book_append_sheet(wb, ws8, 'Financial Ratios');
+
+                XLSX.writeFile(wb, 'Complete_Financial_Report_' + new Date().toISOString().split('T')[0] + '.xlsx');
+            };
+
+            function downloadData(data, filename, format) {
+                if (format === 'excel') {
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+                    XLSX.writeFile(wb, filename + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
+                } else if (format === 'csv') {
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const csv = XLSX.utils.sheet_to_csv(ws);
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename + '_' + new Date().toISOString().split('T')[0] + '.csv';
+                    a.click();
+                } else if (format === 'pdf') {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    
+                    doc.setFontSize(16);
+                    doc.text(filename, 14, 15);
+                    doc.setFontSize(10);
+                    doc.text('Generated on: ' + new Date().toLocaleDateString(), 14, 22);
+                    
+                    const headers = Object.keys(data[0]);
+                    const rows = data.map(item => headers.map(key => item[key]));
+                    
+                    doc.autoTable({
+                        head: [headers],
+                        body: rows,
+                        startY: 30,
+                        theme: 'grid',
+                        styles: { fontSize: 8 }
+                    });
+                    
+                    doc.save(filename + '_' + new Date().toISOString().split('T')[0] + '.pdf');
+                }
             }
-        }
 
-        window.goBackToDashboard = function() {
-            window.location.href = 'index.html';
-        };
+            window.goBackToDashboard = function() {
+                window.location.href = 'index.html';
+            };
 
-        // Set default dates
-        document.getElementById('incomeDate').valueAsDate = new Date();
-        document.getElementById('expenseDate').valueAsDate = new Date();
+            // Set default dates
+            document.getElementById('incomeDate').valueAsDate = new Date();
+            document.getElementById('expenseDate').valueAsDate = new Date();
 
-        // Initialize on page load
-        renderIncomes();
-        renderExpenses();
-        renderAssets();
-        renderLiabilities();
-        updateFinancialStatements();
+            // Initialize - load all data from Firebase
+            loadAllData();
+        });
     </script>
 </body>
 </html>
