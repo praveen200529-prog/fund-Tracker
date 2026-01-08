@@ -613,6 +613,7 @@
                         <label>Work Category *</label>
                         <select id="workCategory" required>
                             <option value="">Select Category</option>
+                            <option value="Whole Project">Whole Project</option>
                             <option value="Labour">Labour</option>
                             <option value="Masonry">Masonry</option>
                             <option value="Electrical">Electrical</option>
@@ -733,14 +734,14 @@
                     </div>
                 </div>
 
-                <!-- Section 8: Photo Attachments -->
-                <div class="section-divider">📷 8. Photo Attachments</div>
+                <!-- Section 8: Photo Attachments (Optional) -->
+                <div class="section-divider">📷 8. Photo Attachments (Optional)</div>
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Work Photos</label>
                         <div class="file-upload" onclick="document.getElementById('workPhotos').click()">
                             <input type="file" id="workPhotos" accept="image/*" multiple onchange="previewPhotos(this, 'workPhotosPreview')">
-                            📸 Click to upload work photos
+                            📸 Click to upload work photos (Optional)
                         </div>
                         <div id="workPhotosPreview" class="photo-preview"></div>
                     </div>
@@ -748,7 +749,7 @@
                         <label>Bill Photos</label>
                         <div class="file-upload" onclick="document.getElementById('billPhotos').click()">
                             <input type="file" id="billPhotos" accept="image/*" multiple onchange="previewPhotos(this, 'billPhotosPreview')">
-                            📄 Click to upload bill photos
+                            📄 Click to upload bill photos (Optional)
                         </div>
                         <div id="billPhotosPreview" class="photo-preview"></div>
                     </div>
@@ -756,7 +757,7 @@
                         <label>Measurement Sheet Photos</label>
                         <div class="file-upload" onclick="document.getElementById('measurementPhotos').click()">
                             <input type="file" id="measurementPhotos" accept="image/*" multiple onchange="previewPhotos(this, 'measurementPhotosPreview')">
-                            📏 Click to upload measurement sheets
+                            📏 Click to upload measurement sheets (Optional)
                         </div>
                         <div id="measurementPhotosPreview" class="photo-preview"></div>
                     </div>
@@ -916,7 +917,7 @@
                     superContractors.map(c => `<option value="${c.firebaseKey}">${c.contractorName} - ${c.workCategory}</option>`).join('');
             }
 
-            // Upload photos to Firebase Storage
+            // Upload photos to Firebase Storage (Optional)
             async function uploadPhotos(files, path) {
                 if (!files || files.length === 0) return [];
                 
@@ -934,7 +935,7 @@
                 e.preventDefault();
                 
                 try {
-                    // Upload photos
+                    // Upload photos (Optional)
                     const workPhotos = document.getElementById('workPhotos').files;
                     const billPhotos = document.getElementById('billPhotos').files;
                     const measurementPhotos = document.getElementById('measurementPhotos').files;
@@ -943,8 +944,8 @@
                     const billPhotoURLs = await uploadPhotos(billPhotos, 'subcontractor_bill_photos');
                     const measurementPhotoURLs = await uploadPhotos(measurementPhotos, 'subcontractor_measurement_photos');
                     
-                    const totalQty = parseFloat(document.getElementById('totalQuantity').value);
-                    const completedQty = parseFloat(document.getElementById('completedQuantity').value);
+                    const totalQty = parseFloat(document.getElementById('totalQuantity').value) || 0;
+                    const completedQty = parseFloat(document.getElementById('completedQuantity').value) || 0;
                     const progressPercent = totalQty > 0 ? ((completedQty / totalQty) * 100).toFixed(2) : 0;
                     
                     const subContractorData = {
@@ -967,31 +968,31 @@
                         workStartDate: document.getElementById('workStartDate').value,
                         expectedCompletionDate: document.getElementById('expectedCompletionDate').value,
                         
-                        // Rate & Agreement
+                        // Rate & Agreement (Fixed NaN issue)
                         rateType: document.getElementById('rateType').value,
-                        agreedRate: parseFloat(document.getElementById('agreedRate').value),
-                        estimatedWorkValue: parseFloat(document.getElementById('estimatedWorkValue').value),
+                        agreedRate: parseFloat(document.getElementById('agreedRate').value) || 0,
+                        estimatedWorkValue: parseFloat(document.getElementById('estimatedWorkValue').value) || 0,
                         advanceGiven: parseFloat(document.getElementById('advanceGiven').value) || 0,
                         
-                        // Payment Tracking
-                        totalWorkValue: parseFloat(document.getElementById('totalWorkValue').value),
+                        // Payment Tracking (Fixed NaN issue)
+                        totalWorkValue: parseFloat(document.getElementById('totalWorkValue').value) || 0,
                         totalPaidAmount: parseFloat(document.getElementById('totalPaidAmount').value) || 0,
                         currentBalance: parseFloat(document.getElementById('currentBalance').value) || 0,
                         lastPaymentDate: document.getElementById('lastPaymentDate').value || null,
                         paymentMode: document.getElementById('paymentMode').value,
                         
-                        // Work Progress
+                        // Work Progress (Fixed NaN issue)
                         totalQuantity: totalQty,
                         completedQuantity: completedQty,
                         pendingQuantity: totalQty - completedQty,
-                        progressPercent: progressPercent,
+                        progressPercent: parseFloat(progressPercent) || 0,
                         workStatus: document.getElementById('workStatus').value,
                         
                         // Status & Notes
                         subContractorStatus: document.getElementById('subContractorStatus').value,
                         remarks: document.getElementById('remarks').value || '',
                         
-                        // Photos
+                        // Photos (Optional)
                         workPhotos: workPhotoURLs,
                         billPhotos: billPhotoURLs,
                         measurementPhotos: measurementPhotoURLs,
@@ -1013,6 +1014,7 @@
                     closeModal();
                     this.reset();
                 } catch (err) {
+                    console.error('Error:', err);
                     alert('❌ Error: ' + err.message);
                 }
             });
@@ -1067,11 +1069,11 @@
             function updateStats() {
                 const total = subContractors.length;
                 const active = subContractors.filter(sc => sc.subContractorStatus === 'Active').length;
-                const totalValue = subContractors.reduce((sum, sc) => sum + sc.totalWorkValue, 0);
-                const totalPaidSum = subContractors.reduce((sum, sc) => sum + sc.totalPaidAmount, 0);
+                const totalValue = subContractors.reduce((sum, sc) => sum + (sc.totalWorkValue || 0), 0);
+                const totalPaidSum = subContractors.reduce((sum, sc) => sum + (sc.totalPaidAmount || 0), 0);
                 const balance = totalValue - totalPaidSum;
                 const avgProgressValue = subContractors.length > 0 
-                    ? subContractors.reduce((sum, sc) => sum + parseFloat(sc.progressPercent), 0) / subContractors.length 
+                    ? subContractors.reduce((sum, sc) => sum + parseFloat(sc.progressPercent || 0), 0) / subContractors.length 
                     : 0;
                 
                 document.getElementById('totalSubContractors').textContent = total;
@@ -1110,19 +1112,19 @@
                 document.getElementById('expectedCompletionDate').value = sc.expectedCompletionDate;
                 
                 document.getElementById('rateType').value = sc.rateType;
-                document.getElementById('agreedRate').value = sc.agreedRate;
-                document.getElementById('estimatedWorkValue').value = sc.estimatedWorkValue;
-                document.getElementById('advanceGiven').value = sc.advanceGiven;
+                document.getElementById('agreedRate').value = sc.agreedRate || 0;
+                document.getElementById('estimatedWorkValue').value = sc.estimatedWorkValue || 0;
+                document.getElementById('advanceGiven').value = sc.advanceGiven || 0;
                 
-                document.getElementById('totalWorkValue').value = sc.totalWorkValue;
-                document.getElementById('totalPaidAmount').value = sc.totalPaidAmount;
-                document.getElementById('currentBalance').value = sc.currentBalance;
+                document.getElementById('totalWorkValue').value = sc.totalWorkValue || 0;
+                document.getElementById('totalPaidAmount').value = sc.totalPaidAmount || 0;
+                document.getElementById('currentBalance').value = sc.currentBalance || 0;
                 document.getElementById('lastPaymentDate').value = sc.lastPaymentDate || '';
                 document.getElementById('paymentMode').value = sc.paymentMode;
                 
-                document.getElementById('totalQuantity').value = sc.totalQuantity;
-                document.getElementById('completedQuantity').value = sc.completedQuantity;
-                document.getElementById('pendingQuantity').value = sc.pendingQuantity;
+                document.getElementById('totalQuantity').value = sc.totalQuantity || 0;
+                document.getElementById('completedQuantity').value = sc.completedQuantity || 0;
+                document.getElementById('pendingQuantity').value = sc.pendingQuantity || 0;
                 document.getElementById('workStatus').value = sc.workStatus;
                 
                 document.getElementById('subContractorStatus').value = sc.subContractorStatus;
@@ -1251,19 +1253,19 @@
                     <div class="info-grid">
                         <div class="info-item">
                             <div class="info-label">Total Quantity</div>
-                            <div class="info-value">${sc.totalQuantity}</div>
+                            <div class="info-value">${sc.totalQuantity || 0}</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Completed</div>
-                            <div class="info-value">${sc.completedQuantity}</div>
+                            <div class="info-value">${sc.completedQuantity || 0}</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Pending</div>
-                            <div class="info-value">${sc.pendingQuantity}</div>
+                            <div class="info-value">${sc.pendingQuantity || 0}</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Progress</div>
-                            <div class="info-value">${sc.progressPercent}%</div>
+                            <div class="info-value">${sc.progressPercent || 0}%</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label">Work Status</div>
